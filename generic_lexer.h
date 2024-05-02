@@ -120,7 +120,7 @@ Tokens lexer_lex(Lexer* lexer);
 
 #endif // GENERIC_LEXER_H
 
-#if 1 // def GENERIC_LEXER_IMPLEMENTATION
+#ifdef GENERIC_LEXER_IMPLEMENTATION
 
 StringView sb_export(StringBuilder sb) {
     StringView view = {0};
