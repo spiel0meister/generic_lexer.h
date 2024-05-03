@@ -341,7 +341,6 @@ Tokens lexer_lex(Lexer* lexer) {
     t.loc.column = lexer->column;
 
     da_append(&tokens, t);
-    free(buf.items);
 
     return tokens;
 }
