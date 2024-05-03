@@ -64,11 +64,21 @@ typedef enum {
     TOKEN_IF,
     TOKEN_ELSE,
     TOKEN_RETURN,
+    TOKEN_FOR,
+    TOKEN_WHILE,
+    TOKEN_DO,
 
     TOKEN_ASSIGN,
     TOKEN_EQ,
+    TOKEN_NEQ,
+    TOKEN_GT,
+    TOKEN_LT,
+    TOKEN_GTE,
+    TOKEN_LTE,
 
     TOKEN_SEMI,
+    TOKEN_PERIOD,
+    TOKEN_COMMA,
 
     TOKEN_LEFTBRACE,
     TOKEN_RIGHTBRACE,
@@ -114,13 +124,14 @@ Lexer lexer_init(char* file, char* content);
 char lexer_peek(Lexer* lexer, size_t offset);
 char lexer_consume(Lexer* lexer);
 
+bool lexer_try_parse_literal(Lexer* lexer, char* lit, TokenType type, Tokens* tokens);
 Token lexer_parse_identifier(Lexer* lexer);
 
 Tokens lexer_lex(Lexer* lexer);
 
 #endif // GENERIC_LEXER_H
 
-#ifdef GENERIC_LEXER_IMPLEMENTATION
+#if 1 //def GENERIC_LEXER_IMPLEMENTATION
 
 StringView sb_export(StringBuilder sb) {
     StringView view = {0};
@@ -131,16 +142,22 @@ StringView sb_export(StringBuilder sb) {
     return view;
 }
 
+#define map_keyword(t, buf, keyword, ttype) \
+    if (strcmp(buf, keyword) == 0) { \
+        (t)->type = ttype; \
+        return; \
+    } \
+
 void check_keywords(char* buf, Token* t) {
-    if (strcmp(buf, "if") == 0) {
-        t->type = TOKEN_IF;
-    } else if (strcmp(buf, "else") == 0) {
-        t->type = TOKEN_ELSE;
-    } else if (strcmp(buf, "return") == 0) {
-        t->type = TOKEN_RETURN;
-    } else {
-        t->type = TOKEN_IDENT;
-    }
+    map_keyword(t, buf, "if", TOKEN_IF);
+    map_keyword(t, buf, "else", TOKEN_ELSE);
+    map_keyword(t, buf, "return", TOKEN_RETURN);
+    map_keyword(t, buf, "for", TOKEN_FOR);
+    map_keyword(t, buf, "while", TOKEN_WHILE);
+    map_keyword(t, buf, "do", TOKEN_WHILE);
+
+    // if buf matched nothing, it is not a keyword, therefore it is an identifier
+    t->type = TOKEN_IDENT;
 }
 
 Lexer lexer_init(char* file, char* content) {
@@ -172,6 +189,36 @@ char lexer_consume(Lexer* lexer) {
     lexer->column++;
     return lexer->content[lexer->cursor++];
 }
+
+bool lexer_try_parse_literal(Lexer* lexer, char* lit, TokenType type, Tokens* tokens) {
+    if (lit == NULL || *lit == 0) return false;
+    size_t lit_len = strlen(lit);
+
+    StringBuilder buf = {0};
+    while (*lit != 0) {
+        if (lexer_peek(lexer, 0) != *lit++) {
+            return false;
+        }
+    }
+
+    for (; lit_len > 0; lit_len--) { 
+        sb_char_append(&buf, lexer_consume(lexer));
+    }
+
+    Token t = {0};
+    t.type = type;
+
+    t.loc.file = lexer->file;
+    t.loc.line = lexer->line;
+    t.loc.column = lexer->column;
+
+    t.value = sb_export(buf);
+    da_append(tokens, t);
+
+    free(buf.items);
+    return true;
+}
+
 
 Token lexer_parse_number(Lexer* lexer) {
     StringBuilder buf = {0};
@@ -232,22 +279,6 @@ Token lexer_parse_identifier(Lexer* lexer) {
     return t;
 }
 
-#define token_literal(lexer, tokens, c, clit, ttype) \
-    if (c == clit) { \
-        Token t; \
-        t.type = ttype; \
-        StringBuilder buf = {0}; \
-        sb_char_append(&buf, c); \
-        t.value = sb_export(buf); \
-        t.loc.file = (lexer)->file; \
-        t.loc.line = (lexer)->line; \
-        t.loc.column = (lexer)->column; \
-        da_append(tokens, t); \
-        free(buf.items); \
-        lexer_consume(lexer); \
-        continue; \
-    }
-
 Tokens lexer_lex(Lexer* lexer) {
     Tokens tokens = {0};
 
@@ -278,46 +309,39 @@ Tokens lexer_lex(Lexer* lexer) {
             continue;
         }
 
-        if (c == '=') {
-            Token t; 
+        // two character tokens
+        if (lexer_try_parse_literal(lexer, "==", TOKEN_EQ, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, "!=", TOKEN_NEQ, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, ">=", TOKEN_GTE, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, "<=", TOKEN_LTE, &tokens)) continue;
 
-            if (lexer_peek(lexer, 1) == '=') {
-                t.type = TOKEN_EQ;
-
-                StringBuilder buf = {0}; 
-                sb_cstr_append(&buf, "=="); 
-                t.value = sb_export(buf); 
-                free(buf.items); 
-
-                lexer_consume(lexer);
-            } else {
-                t.type = TOKEN_ASSIGN; 
-
-                StringBuilder buf = {0}; 
-                sb_char_append(&buf, c); 
-                t.value = sb_export(buf); 
-                free(buf.items); 
-            }
-
-            t.loc.file = (lexer)->file; 
-            t.loc.line = (lexer)->line; 
-            t.loc.column = (lexer)->column; 
-            da_append(&tokens, t); 
-            lexer_consume(lexer); 
-            continue; 
-        }
-
-        token_literal(lexer, &tokens, c, ';', TOKEN_SEMI);
-        token_literal(lexer, &tokens, c, '{', TOKEN_LEFTBRACE);
-        token_literal(lexer, &tokens, c, '}', TOKEN_RIGHTBRACE);
-        token_literal(lexer, &tokens, c, '(', TOKEN_LEFTPAREN);
-        token_literal(lexer, &tokens, c, ')', TOKEN_RIGHTPAREN);
-        token_literal(lexer, &tokens, c, '[', TOKEN_LEFTBRACKET);
-        token_literal(lexer, &tokens, c, ']', TOKEN_RIGHTBRACKET);
+        // single character tokens
+        if (lexer_try_parse_literal(lexer, "<", TOKEN_LT, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, ">", TOKEN_GT, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, "=", TOKEN_ASSIGN, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, ";", TOKEN_SEMI, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, ".", TOKEN_PERIOD, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, ",", TOKEN_COMMA, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, "{", TOKEN_LEFTBRACE, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, "}", TOKEN_RIGHTBRACE, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, "(", TOKEN_LEFTPAREN, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, ")", TOKEN_RIGHTPAREN, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, "[", TOKEN_LEFTBRACKET, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, "]", TOKEN_RIGHTBRACKET, &tokens)) continue;
 
         fprintf(stderr, "ERROR: %s:%ld:%ld: Unexpected character: %c\n", lexer->file, lexer->line, lexer->column, c);
         exit(EXIT_FAILURE);
     }
+
+    Token t;
+    t.type = TOKEN_EOF;
+    
+    t.loc.file = lexer->file;
+    t.loc.line = lexer->line;
+    t.loc.column = lexer->column;
+
+    da_append(&tokens, t);
+    free(buf.items);
 
     return tokens;
 }
