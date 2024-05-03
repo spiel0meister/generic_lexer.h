@@ -201,8 +201,8 @@ bool lexer_try_parse_literal(Lexer* lexer, char* lit, TokenType type, Tokens* to
     size_t lit_len = strlen(lit);
 
     StringBuilder buf = {0};
-    while (*lit != 0) {
-        if (lexer_peek(lexer, 0) != *lit++) {
+    for (size_t i = 0; i < lit_len && *lit != 0; i++) {
+        if (lexer_peek(lexer, i) != *lit++) {
             return false;
         }
     }

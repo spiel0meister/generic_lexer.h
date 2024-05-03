@@ -9,7 +9,9 @@ int main(void) {
     Tokens tokens = lexer_lex(&lexer);
 
     for (size_t i = 0; i < tokens.size; i++) {
-        printf("%s\n", tokens.items[i].value.items);
+        if (tokens.items[i].value.items != NULL) {
+            printf("%s\n", tokens.items[i].value.items);
+        }
     }
 
     for (size_t i = 0; i < tokens.size; i++) {
