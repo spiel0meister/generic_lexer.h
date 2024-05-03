@@ -68,6 +68,12 @@ typedef enum {
     TOKEN_WHILE,
     TOKEN_DO,
 
+    TOKEN_PLUS,
+    TOKEN_DASH,
+    TOKEN_STAR,
+    TOKEN_SLASH,
+    TOKEN_PERCENT,
+
     TOKEN_ASSIGN,
     TOKEN_EQ,
     TOKEN_NEQ,
@@ -319,6 +325,11 @@ Tokens lexer_lex(Lexer* lexer) {
         if (lexer_try_parse_literal(lexer, "<", TOKEN_LT, &tokens)) continue;
         if (lexer_try_parse_literal(lexer, ">", TOKEN_GT, &tokens)) continue;
         if (lexer_try_parse_literal(lexer, "=", TOKEN_ASSIGN, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, "+", TOKEN_PLUS, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, "-", TOKEN_DASH, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, "*", TOKEN_STAR, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, "/", TOKEN_SLASH, &tokens)) continue;
+        if (lexer_try_parse_literal(lexer, "%", TOKEN_PERCENT, &tokens)) continue;
         if (lexer_try_parse_literal(lexer, ";", TOKEN_SEMI, &tokens)) continue;
         if (lexer_try_parse_literal(lexer, ".", TOKEN_PERIOD, &tokens)) continue;
         if (lexer_try_parse_literal(lexer, ",", TOKEN_COMMA, &tokens)) continue;
@@ -333,7 +344,7 @@ Tokens lexer_lex(Lexer* lexer) {
         exit(EXIT_FAILURE);
     }
 
-    Token t;
+    Token t = {0};
     t.type = TOKEN_EOF;
     
     t.loc.file = lexer->file;
